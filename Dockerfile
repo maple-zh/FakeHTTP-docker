@@ -1,8 +1,7 @@
-# --- 阶段 1: 编译阶段 ---
+# 阶段一：构建阶段
 FROM alpine:latest AS builder
 
-# 安装编译所需的依赖
-# FakeHTTP 依赖 libnetfilter_queue, libnfnetlink, libmnl
+# 安装编译依赖
 RUN apk add --no-cache \
     build-base \
     gcc \
@@ -11,34 +10,39 @@ RUN apk add --no-cache \
     libnetfilter_queue-dev \
     libnfnetlink-dev \
     libmnl-dev \
-    linux-headers
+    linux-headers \
+    git
 
-# 设置工作目录
-WORKDIR /app
+# 1. 编译 FakeHTTP
+WORKDIR /tmp/FakeHTTP
+RUN git clone https://github.com/MikeWang000000/FakeHTTP.git . && \
+    make && \
+    make install
 
-# 复制源码
-COPY . .
+# 2. 编译 FakeSIP
+WORKDIR /tmp/FakeSIP
+RUN git clone https://github.com/MikeWang000000/FakeSIP.git . && \
+    make && \
+    make install
 
-# 编译项目 (使用静态链接或常规链接)
-RUN make
-
-# --- 阶段 2: 运行阶段 ---
+# 阶段二：运行阶段
 FROM alpine:latest
 
-# 安装运行所需的运行时库 (FakeHTTP 需要 netfilter 相关的库)
+# 安装运行时依赖
 RUN apk add --no-cache \
     libnetfilter_queue \
     libnfnetlink \
     libmnl \
     iptables \
-    ca-certificates
+    ca-certificates \
+    bash
 
-# 从编译阶段拷贝二进制文件
-COPY --from=builder /app/build/fakehttp /usr/local/bin/fakehttp
+# 从构建阶段复制二进制文件
+COPY --from=builder /usr/local/bin/fakehttp /usr/local/bin/fakehttp
+COPY --from=builder /usr/local/bin/fakesip /usr/local/bin/fakesip
 
-# 赋予执行权限
-RUN chmod +x /usr/local/bin/fakehttp
+# 复制并设置入口脚本
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# FakeHTTP 通常需要修改 netfilter 规则，所以需要以 root 或具备相应能力运行
-# 默认入口
-ENTRYPOINT ["fakehttp"]
+ENTRYPOINT ["/entrypoint.sh"]
