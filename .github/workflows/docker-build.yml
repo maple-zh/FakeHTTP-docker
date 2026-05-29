@@ -27,7 +27,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 准备镜像名称：ghcr.io/<owner>/fakehttp-fakesip
       - name: Prepare Image Name
         id: prep
         run: |
@@ -63,19 +62,16 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 保存 AMD64 架构镜像为 tar 包
       - name: Save Docker Image (AMD64)
         run: |
           docker pull ${{ steps.prep.outputs.image_name }}:${{ github.event.inputs.version }} --platform linux/amd64
           docker save ${{ steps.prep.outputs.image_name }}:${{ github.event.inputs.version }} | gzip > fakehttp-fakesip_amd64.tar.gz
 
-      # 保存 ARM64 架构镜像为 tar 包
       - name: Save Docker Image (ARM64)
         run: |
           docker pull ${{ steps.prep.outputs.image_name }}:${{ github.event.inputs.version }} --platform linux/arm64
           docker save ${{ steps.prep.outputs.image_name }}:${{ github.event.inputs.version }} | gzip > fakehttp-fakesip_arm64.tar.gz
 
-      # 创建 Release 并上传两个 tar 包
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
