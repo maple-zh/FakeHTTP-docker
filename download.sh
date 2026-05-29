@@ -1,29 +1,42 @@
 #!/bin/sh
 set -e
 
-# 定义下载函数
-download_binary() {
-    local name=$1
-    local version=$2
-    local arch=$3
-    # 注意: 由于官方二进制包命名中没有 x86_64，需要做一次映射
-    case "$arch" in
-        amd64) real_arch="x86_64" ;;
-        arm64) real_arch="arm64" ;;
-        *) echo "Unsupported architecture: $arch"; exit 1 ;;
-    esac
-    url="https://github.com/MikeWang000000/${name}/releases/download/${version}/${name}-linux-${real_arch}.tar.gz"
-    echo "Downloading ${url}"
-    wget -q -O "/tmp/${name}.tar.gz" "$url"
-    tar -xzf "/tmp/${name}.tar.gz" -C /usr/local/bin/
-    rm -f "/tmp/${name}.tar.gz"
-}
-
-# 从环境变量获取版本号，若无则使用最新稳定版
+# 默认版本号（可通过构建参数覆盖）
 FAKEHTTP_VERSION="${FAKEHTTP_VERSION:-0.9.18}"
 FAKESIP_VERSION="${FAKESIP_VERSION:-0.9.1}"
-TARGETARCH="${TARGETARCH}"
 
-echo "Building for architecture: $TARGETARCH"
-download_binary "FakeHTTP" "$FAKEHTTP_VERSION" "$TARGETARCH"
-download_binary "FakeSIP" "$FAKESIP_VERSION" "$TARGETARCH"
+# 获取目标架构（由 Docker --build-arg TARGETARCH 传入）
+ARCH="${TARGETARCH}"
+if [ -z "$ARCH" ]; then
+    echo "ERROR: TARGETARCH build argument is not set"
+    exit 1
+fi
+
+# 映射 Docker 架构到官方 Release 文件名中的架构
+case "$ARCH" in
+    amd64) REAL_ARCH="x86_64" ;;
+    arm64) REAL_ARCH="arm64" ;;
+    *)
+        echo "Unsupported architecture: $ARCH"
+        exit 1
+        ;;
+esac
+
+# 下载并解压 FakeHTTP
+echo "Downloading FakeHTTP ${FAKEHTTP_VERSION} for ${REAL_ARCH}..."
+HTTP_URL="https://github.com/MikeWang000000/FakeHTTP/releases/download/${FAKEHTTP_VERSION}/FakeHTTP-linux-${REAL_ARCH}.tar.gz"
+wget -q -O /tmp/fakehttp.tar.gz "$HTTP_URL"
+tar -xzf /tmp/fakehttp.tar.gz -C /usr/local/bin/
+rm /tmp/fakehttp.tar.gz
+
+# 下载并解压 FakeSIP
+echo "Downloading FakeSIP ${FAKESIP_VERSION} for ${REAL_ARCH}..."
+SIP_URL="https://github.com/MikeWang000000/FakeSIP/releases/download/${FAKESIP_VERSION}/FakeSIP-linux-${REAL_ARCH}.tar.gz"
+wget -q -O /tmp/fakesip.tar.gz "$SIP_URL"
+tar -xzf /tmp/fakesip.tar.gz -C /usr/local/bin/
+rm /tmp/fakesip.tar.gz
+
+# 设置可执行权限
+chmod +x /usr/local/bin/fakehttp /usr/local/bin/fakesip
+
+echo "Download completed successfully."
