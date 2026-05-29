@@ -1,6 +1,6 @@
 FROM alpine:latest
 
-# 安装运行时依赖
+# 安装运行时依赖和工具
 RUN apk add --no-cache \
     libnetfilter_queue \
     libnfnetlink \
@@ -8,13 +8,14 @@ RUN apk add --no-cache \
     iptables \
     ca-certificates \
     bash \
-    wget  # 下载工具
+    wget
 
 # 复制下载脚本并执行
 COPY download.sh /download.sh
 RUN chmod +x /download.sh
 
-# 在构建时根据 TARGETARCH 下载对应二进制文件
+# 下载二进制文件（构建参数 TARGETARCH 由 docker build --build-arg 传入）
+ARG TARGETARCH
 RUN /download.sh
 
 # 复制入口脚本
