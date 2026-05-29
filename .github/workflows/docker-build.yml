@@ -4,9 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '镜像版本号 (例如 v1.0.0)'
+        description: 'Docker 镜像版本号 (例如 v1.0.0)'
         required: true
         default: 'v1.0.0'
+      fakehttp_version:
+        description: 'FakeHTTP 版本 (例如 0.9.18)'
+        required: false
+        default: '0.9.18'
+      fakesip_version:
+        description: 'FakeSIP 版本 (例如 0.9.1)'
+        required: false
+        default: '0.9.1'
 
 permissions:
   contents: read
@@ -19,7 +27,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 准备镜像名称
+      # 准备镜像名称：ghcr.io/<owner>/fakehttp-fakesip
       - name: Prepare Image Name
         id: prep
         run: |
@@ -49,20 +57,23 @@ jobs:
           tags: |
             ${{ steps.prep.outputs.image_name }}:${{ github.event.inputs.version }}
             ${{ steps.prep.outputs.image_name }}:latest
+          build-args: |
+            FAKEHTTP_VERSION=${{ github.event.inputs.fakehttp_version }}
+            FAKESIP_VERSION=${{ github.event.inputs.fakesip_version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       # 保存 AMD64 架构镜像为 tar 包
       - name: Save Docker Image (AMD64)
         run: |
-          docker pull ${{ steps.prep.outputs.image_name }}:latest --platform linux/amd64
-          docker save ${{ steps.prep.outputs.image_name }}:latest | gzip > fakehttp-fakesip_amd64.tar.gz
+          docker pull ${{ steps.prep.outputs.image_name }}:${{ github.event.inputs.version }} --platform linux/amd64
+          docker save ${{ steps.prep.outputs.image_name }}:${{ github.event.inputs.version }} | gzip > fakehttp-fakesip_amd64.tar.gz
 
       # 保存 ARM64 架构镜像为 tar 包
       - name: Save Docker Image (ARM64)
         run: |
-          docker pull ${{ steps.prep.outputs.image_name }}:latest --platform linux/arm64
-          docker save ${{ steps.prep.outputs.image_name }}:latest | gzip > fakehttp-fakesip_arm64.tar.gz
+          docker pull ${{ steps.prep.outputs.image_name }}:${{ github.event.inputs.version }} --platform linux/arm64
+          docker save ${{ steps.prep.outputs.image_name }}:${{ github.event.inputs.version }} | gzip > fakehttp-fakesip_arm64.tar.gz
 
       # 创建 Release 并上传两个 tar 包
       - name: Create Release
